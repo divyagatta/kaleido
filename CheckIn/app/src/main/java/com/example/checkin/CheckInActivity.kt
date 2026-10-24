@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 /** Full-screen lock. Back is disabled; only completing the survey clears the lock. */
 class CheckInActivity : ComponentActivity() {
     private val generator: QuestionGenerator = ClaudeQuestionGenerator()
-
+    // hi i'm ria poopy
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val store = Store(this)

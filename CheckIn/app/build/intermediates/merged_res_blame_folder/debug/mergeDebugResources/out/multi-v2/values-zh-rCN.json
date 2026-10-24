@@ -4,7 +4,7 @@
             "outputFile": "com.example.checkin.app-mergeDebugResources-37:/values-zh-rCN/values-zh-rCN.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\divya\\.gradle\\caches\\9.6.0\\transforms\\2331b4d8578ac672b654b994a5a556b7\\transformed\\ui-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
+                    "source": "C:\\Users\\riyer\\.gradle\\caches\\9.6.0\\transforms\\2331b4d8578ac672b654b994a5a556b7\\transformed\\ui-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -21,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\divya\\.gradle\\caches\\9.6.0\\transforms\\583642064e541a0c6f2f94536b1165e6\\transformed\\core-1.13.1\\res\\values-zh-rCN\\values-zh-rCN.xml",
+                    "source": "C:\\Users\\riyer\\.gradle\\caches\\9.6.0\\transforms\\583642064e541a0c6f2f94536b1165e6\\transformed\\core-1.13.1\\res\\values-zh-rCN\\values-zh-rCN.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",
@@ -38,7 +38,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\divya\\.gradle\\caches\\9.6.0\\transforms\\967edcdf3f1cf63feb656841870c3ead\\transformed\\material3-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
+                    "source": "C:\\Users\\riyer\\.gradle\\caches\\9.6.0\\transforms\\967edcdf3f1cf63feb656841870c3ead\\transformed\\material3-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -55,7 +55,7 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\divya\\.gradle\\caches\\9.6.0\\transforms\\a4052c5dfaab6bd754e3bed286906422\\transformed\\foundation-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
+                    "source": "C:\\Users\\riyer\\.gradle\\caches\\9.6.0\\transforms\\a4052c5dfaab6bd754e3bed286906422\\transformed\\foundation-release\\res\\values-zh-rCN\\values-zh-rCN.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
