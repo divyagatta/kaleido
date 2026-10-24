@@ -1,5 +1,6 @@
 package com.example.checkin
 
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -9,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
 
 /** Full-screen lock. Back is disabled; only completing the survey clears the lock. */
 class CheckInActivity : ComponentActivity() {
