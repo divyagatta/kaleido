@@ -2,12 +2,17 @@ package com.example.checkin
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,8 +21,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -46,10 +64,30 @@ val PoppinsFontFamily = FontFamily(
 data class AppInfo(val label: String, val pkg: String)
 
 fun launchableApps(ctx: Context): List<AppInfo> {
-    val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-    return ctx.packageManager.queryIntentActivities(i, 0)
-        .map { AppInfo(it.loadLabel(ctx.packageManager).toString(), it.activityInfo.packageName) }
-        .filter { it.pkg != ctx.packageName }.distinctBy { it.pkg }.sortedBy { it.label.lowercase() }
+    val pm = ctx.packageManager
+
+    val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+    }
+    val launcherApps = pm.queryIntentActivities(mainIntent, 0).mapNotNull { resolveInfo ->
+        val pkg = resolveInfo.activityInfo?.packageName ?: return@mapNotNull null
+        val label = resolveInfo.loadLabel(pm).toString()
+        AppInfo(if (label.isNotBlank()) label else pkg, pkg)
+    }
+
+    val installedApps = pm.getInstalledApplications(0).mapNotNull { appInfo ->
+        val pkg = appInfo.packageName
+        val launchIntent = pm.getLaunchIntentForPackage(pkg)
+        if (launchIntent != null) {
+            val label = appInfo.loadLabel(pm).toString()
+            AppInfo(if (label.isNotBlank()) label else pkg, pkg)
+        } else null
+    }
+
+    return (launcherApps + installedApps)
+        .filter { it.pkg != ctx.packageName }
+        .distinctBy { it.pkg }
+        .sortedBy { it.label.lowercase() }
 }
 
 @Composable
@@ -380,16 +418,311 @@ fun PermissionsScreenPreview() {
     }
 }
 
-@Composable fun SelectAppsScreen(apps: List<AppInfo>, selected: Set<String>, onToggle: (String) -> Unit, onNext: () -> Unit) =
-    Page("Choose apps", "Which apps should trigger check-ins?", "Next", selected.isNotEmpty(), onNext) {
-        LazyColumn {
-            items(apps) { a ->
-                Row(Modifier.fillMaxWidth().clickable { onToggle(a.pkg) }.padding(vertical = 4.dp)) {
-                    Checkbox(a.pkg in selected, { onToggle(a.pkg) }); Text(a.label, Modifier.padding(top = 12.dp))
+@Composable
+private fun AppIconImage(pkg: String, label: String) {
+    val context = LocalContext.current
+    val bitmap = remember(pkg) {
+        try {
+            val drawable = context.packageManager.getApplicationIcon(pkg)
+            val b = Bitmap.createBitmap(
+                drawable.intrinsicWidth.coerceAtLeast(1),
+                drawable.intrinsicHeight.coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = android.graphics.Canvas(b)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            b.asImageBitmap()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = label,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(Color(0xFFEFFFE7), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label.take(1).uppercase(),
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF688E61)
+                )
+            )
+        }
+    }
+}
+
+fun Modifier.drawVerticalScrollbar(
+    state: LazyListState,
+    coroutineScope: CoroutineScope,
+    color: Color = Color(0xFF688E61),
+    trackColor: Color = Color(0xFFEFFFE7),
+    width: Dp = 10.dp
+): Modifier = this
+    .pointerInput(state) {
+        detectVerticalDragGestures { change, dragAmount ->
+            change.consume()
+            val totalItems = state.layoutInfo.totalItemsCount
+            if (totalItems > 0) {
+                val trackHeight = size.height.toFloat()
+                val scrollRatio = dragAmount / trackHeight
+                val itemScrollDelta = scrollRatio * totalItems
+
+                coroutineScope.launch {
+                    val targetIndex = (state.firstVisibleItemIndex + itemScrollDelta.toInt()).coerceIn(0, totalItems - 1)
+                    state.scrollToItem(targetIndex)
                 }
             }
         }
     }
+    .drawWithContent {
+        drawContent()
+
+        val totalItemsCount = state.layoutInfo.totalItemsCount
+        val visibleItemsInfo = state.layoutInfo.visibleItemsInfo
+
+        if (visibleItemsInfo.isNotEmpty() && totalItemsCount > 0) {
+            val firstIndex = state.firstVisibleItemIndex
+            val firstOffset = state.firstVisibleItemScrollOffset
+            val visibleItemsCount = visibleItemsInfo.size
+            val trackHeight = size.height
+
+            val avgItemHeight = visibleItemsInfo.sumOf { it.size }.toFloat() / visibleItemsCount.coerceAtLeast(1)
+            val totalEstimatedHeight = avgItemHeight * totalItemsCount
+            val currentScrollOffset = (firstIndex * avgItemHeight) + firstOffset
+            val maxScrollOffset = (totalEstimatedHeight - trackHeight).coerceAtLeast(1f)
+
+            val thumbHeight = ((visibleItemsCount.toFloat() / totalItemsCount.toFloat()) * trackHeight)
+                .coerceIn(36.dp.toPx(), trackHeight)
+
+            val scrollProgress = (currentScrollOffset / maxScrollOffset).coerceIn(0f, 1f)
+            val thumbOffsetY = scrollProgress * (trackHeight - thumbHeight)
+
+            drawRoundRect(
+                color = trackColor,
+                topLeft = Offset(size.width - width.toPx(), 0f),
+                size = Size(width.toPx(), trackHeight),
+                cornerRadius = CornerRadius(width.toPx() / 2, width.toPx() / 2)
+            )
+
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(size.width - width.toPx(), thumbOffsetY),
+                size = Size(width.toPx(), thumbHeight),
+                cornerRadius = CornerRadius(width.toPx() / 2, width.toPx() / 2)
+            )
+        }
+    }
+
+@Composable
+fun SelectAppsScreen(
+    apps: List<AppInfo>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onNext: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FBF7)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 360.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Section: Progress & Subtitle
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 35.dp)
+                    .padding(top = 28.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                LinearProgressIndicator(
+                    progress = { 2f / 3f }, // 66.6% progress for Setup 2 of 3
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    color = Color(0xFF688E61),
+                    trackColor = Color(0xFFEFFFE7),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Setup 2 of 3",
+                    style = TextStyle(
+                        fontFamily = PoppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        color = Color(0xFF688E61)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(38.dp))
+
+            // Headline Text
+            Text(
+                text = "Choose the apps you want to limit:",
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 24.sp,
+                    color = Color(0xFF688E61),
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier
+                    .width(250.dp)
+                    .padding(horizontal = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(35.dp))
+
+            // White Card Sheet
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                        ambientColor = Color(0x21688E61),
+                        spotColor = Color(0x21688E61)
+                    ),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val listState = rememberLazyListState()
+                    val coroutineScope = rememberCoroutineScope()
+
+                    // List of Apps with Interactive Vertical Scrollbar
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .drawVerticalScrollbar(listState, coroutineScope)
+                            .padding(end = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(apps, key = { it.pkg }) { app ->
+                            val isChecked = app.pkg in selected
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggle(app.pkg) }
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AppIconImage(pkg = app.pkg, label = app.label)
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Text(
+                                    text = app.label,
+                                    style = TextStyle(
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF1D1B20)
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { onToggle(app.pkg) },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF688E61),
+                                        uncheckedColor = Color(0xFF688E61).copy(alpha = 0.6f),
+                                        checkmarkColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Next Button
+                    Button(
+                        onClick = onNext,
+                        enabled = selected.isNotEmpty(),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF688E61),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFF688E61).copy(alpha = 0.5f),
+                            disabledContentColor = Color.White.copy(alpha = 0.7f)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 8.dp,
+                            pressedElevation = 4.dp
+                        ),
+                        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp),
+                        modifier = Modifier.widthIn(min = 134.dp)
+                    ) {
+                        Text(
+                            text = "Next",
+                            style = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 22.sp,
+                                lineHeight = 28.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun SelectAppsScreenPreview() {
+    MaterialTheme {
+        SelectAppsScreen(
+            apps = listOf(
+                AppInfo("Instagram", "com.instagram.android"),
+                AppInfo("TikTok", "com.zhiliaoapp.musically"),
+                AppInfo("YouTube", "com.google.android.youtube"),
+                AppInfo("X / Twitter", "com.twitter.android")
+            ),
+            selected = emptySet(),
+            onToggle = {},
+            onNext = {}
+        )
+    }
+}
 
 @Composable fun FrequencyScreen(minutes: Int, onChange: (Int) -> Unit, onNext: () -> Unit) =
     Page("Check-in frequency", "Check in after this much time in your selected apps.", "Next", onCta = onNext) {
@@ -415,18 +748,237 @@ fun SurveyScreen(title: String, questions: List<Question>, onDone: (List<QA>) ->
     val answers = remember { mutableStateListOf<QA>() }
     var current by remember(idx) { mutableStateOf("") }
     val q = questions[idx]
-    val valid = if (q.type == QType.OPEN) current.trim().length >= 10 else current.isNotBlank()
+    val valid = if (q.type == QType.OPEN) current.trim().isNotBlank() else current.isNotBlank()
     val last = idx == questions.lastIndex
-    Page(title, "Question ${idx + 1} of ${questions.size}", if (last) "Finish" else "Next", valid, {
-        answers.add(QA(q.text, current.trim()))
-        if (last) onDone(answers.toList()) else idx++
-    }) {
-        Text(q.text, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(12.dp))
-        if (q.type == QType.OPEN) OutlinedTextField(current, { current = it }, Modifier.fillMaxWidth(), minLines = 4)
-        else q.options.forEach { o ->
-            Row(Modifier.fillMaxWidth().clickable { current = o }) { RadioButton(current == o, { current = o }); Text(o, Modifier.padding(top = 12.dp)) }
+    val progress = (idx + 1).toFloat() / questions.size.coerceAtLeast(1).toFloat()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FBF7)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 360.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(top = 56.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 24.sp,
+                    color = Color(0xFF688E61),
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = Color(0xFF688E61),
+                trackColor = Color(0xFFEFFFE7),
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Question ${idx + 1} of ${questions.size}",
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    color = Color(0xFF688E61),
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x21688E61),
+                        spotColor = Color(0x21688E61)
+                    ),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = q.text,
+                        style = TextStyle(
+                            fontFamily = PoppinsFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 15.sp,
+                            lineHeight = 24.sp,
+                            color = Color(0xFF688E61).copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    if (q.type == QType.OPEN) {
+                        OutlinedTextField(
+                            value = current,
+                            onValueChange = { current = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 180.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            textStyle = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                                color = Color(0xFF688E61)
+                            ),
+                            placeholder = {
+                                Text(
+                                    text = "Type your response here…",
+                                    style = TextStyle(
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 15.sp,
+                                        color = Color(0xFF688E61).copy(alpha = 0.5f)
+                                    )
+                                )
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedBorderColor = Color(0xFF688E61),
+                                unfocusedBorderColor = Color(0xFFEFFFE7),
+                                cursorColor = Color(0xFF688E61)
+                            )
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            q.options.forEach { option ->
+                                val isSelected = current == option
+                                Surface(
+                                    onClick = { current = option },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isSelected) Color(0xFFEFFFE7) else Color.White,
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isSelected) Color(0xFF688E61) else Color(0xFFEFFFE7)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = { current = option },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = Color(0xFF688E61),
+                                                unselectedColor = Color(0xFF688E61).copy(alpha = 0.6f)
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = option,
+                                            style = TextStyle(
+                                                fontFamily = PoppinsFontFamily,
+                                                fontWeight = FontWeight.Medium,
+                                                fontSize = 15.sp,
+                                                color = Color(0xFF688E61)
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = {
+                                answers.add(QA(q.text, current.trim()))
+                                if (last) onDone(answers.toList()) else idx++
+                            },
+                            enabled = valid,
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF688E61),
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFF688E61).copy(alpha = 0.5f),
+                                disabledContentColor = Color.White.copy(alpha = 0.7f)
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 8.dp,
+                                pressedElevation = 4.dp
+                            ),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
+                        ) {
+                            Text(
+                                text = if (last) "Finish" else "Next",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 22.sp,
+                                    lineHeight = 28.sp,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                )
+                            )
+                        }
+                    }
+                }
+            }
         }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun SurveyScreenPreview() {
+    MaterialTheme {
+        SurveyScreen(
+            title = "Intro Survey",
+            questions = listOf(
+                Question("What kind of content do you usually consume, and how does it make you feel?", QType.OPEN),
+                Question("How do you usually feel after a long session?", QType.CHOICE, listOf("Energized", "Neutral", "Drained", "Anxious or irritated"))
+            ),
+            onDone = {}
+        )
     }
 }
 
