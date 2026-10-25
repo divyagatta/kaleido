@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -230,6 +231,7 @@ fun PermissionsScreen(
     overlayGranted: Boolean,
     onUsage: () -> Unit,
     onOverlay: () -> Unit,
+    onBack: () -> Unit,
     onNext: () -> Unit
 ) {
     Box(
@@ -244,23 +246,41 @@ fun PermissionsScreen(
                 .widthIn(max = 360.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Section: Progress & Title
+            // Top Section: Back Button, Progress & Title
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 35.dp)
-                    .padding(top = 26.dp),
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 20.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                LinearProgressIndicator(
-                    progress = { 0.33f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = Color(0xFF688E61),
-                    trackColor = Color(0xFFEFFFE7),
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF688E61)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    LinearProgressIndicator(
+                        progress = { 0.33f },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(8.dp),
+                        color = Color(0xFF688E61),
+                        trackColor = Color(0xFFEFFFE7),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -272,7 +292,8 @@ fun PermissionsScreen(
                         fontSize = 16.sp,
                         lineHeight = 24.sp,
                         color = Color(0xFF688E61)
-                    )
+                    ),
+                    modifier = Modifier.padding(start = 48.dp)
                 )
             }
 
@@ -424,6 +445,7 @@ fun PermissionsScreenPreview() {
             overlayGranted = true,
             onUsage = {},
             onOverlay = {},
+            onBack = {},
             onNext = {}
         )
     }
@@ -484,22 +506,6 @@ fun Modifier.drawVerticalScrollbar(
     trackColor: Color = Color(0xFFEFFFE7),
     width: Dp = 10.dp
 ): Modifier = this
-    .pointerInput(state) {
-        detectVerticalDragGestures { change, dragAmount ->
-            change.consume()
-            val totalItems = state.layoutInfo.totalItemsCount
-            if (totalItems > 0) {
-                val trackHeight = size.height.toFloat()
-                val scrollRatio = dragAmount / trackHeight
-                val itemScrollDelta = scrollRatio * totalItems
-
-                coroutineScope.launch {
-                    val targetIndex = (state.firstVisibleItemIndex + itemScrollDelta.toInt()).coerceIn(0, totalItems - 1)
-                    state.scrollToItem(targetIndex)
-                }
-            }
-        }
-    }
     .drawWithContent {
         drawContent()
 
@@ -544,6 +550,7 @@ fun SelectAppsScreen(
     apps: List<AppInfo>,
     selected: Set<String>,
     onToggle: (String) -> Unit,
+    onBack: () -> Unit,
     onNext: () -> Unit
 ) {
     Box(
@@ -558,23 +565,41 @@ fun SelectAppsScreen(
                 .widthIn(max = 360.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Section: Progress & Subtitle
+            // Top Section: Back Button, Progress & Subtitle
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 35.dp)
-                    .padding(top = 28.dp),
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 20.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                LinearProgressIndicator(
-                    progress = { 2f / 3f }, // 66.6% progress for Setup 2 of 3
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = Color(0xFF688E61),
-                    trackColor = Color(0xFFEFFFE7),
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF688E61)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    LinearProgressIndicator(
+                        progress = { 2f / 3f }, // 66.6% progress for Setup 2 of 3
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(8.dp),
+                        color = Color(0xFF688E61),
+                        trackColor = Color(0xFFEFFFE7),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -586,7 +611,8 @@ fun SelectAppsScreen(
                         fontSize = 16.sp,
                         lineHeight = 24.sp,
                         color = Color(0xFF688E61)
-                    )
+                    ),
+                    modifier = Modifier.padding(start = 48.dp)
                 )
             }
 
@@ -730,6 +756,7 @@ fun SelectAppsScreenPreview() {
             ),
             selected = emptySet(),
             onToggle = {},
+            onBack = {},
             onNext = {}
         )
     }
@@ -769,9 +796,9 @@ fun TimePickerWheel(
         }
     }
 
-    // Trigger onValueChange whenever centered item changes
-    LaunchedEffect(centerIndex) {
-        if (centerIndex in options.indices) {
+    // Trigger onValueChange whenever scroll stops and centered item changes
+    LaunchedEffect(listState.isScrollInProgress, centerIndex) {
+        if (!listState.isScrollInProgress && centerIndex in options.indices) {
             val selectedVal = options[centerIndex]
             if (selectedVal != value) {
                 onValueChange(selectedVal)
@@ -834,7 +861,6 @@ fun TimePickerWheel(
         // Fixed height box showing scrollable list items
         val itemHeight = 72.dp
         val gap = 16.dp
-        // 3 visible items height: 72 * 3 + 16 * 2 = 248.dp
         val visibleHeight = itemHeight * 3 + gap * 2
 
         Box(
@@ -846,6 +872,7 @@ fun TimePickerWheel(
             LazyColumn(
                 state = listState,
                 flingBehavior = flingBehavior,
+                userScrollEnabled = true,
                 contentPadding = PaddingValues(vertical = itemHeight + gap),
                 verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize()
@@ -894,7 +921,7 @@ fun TimePickerWheel(
                                         )
                                 }
                             )
-                            .clickable {
+                            .clickable(enabled = !listState.isScrollInProgress) {
                                 coroutineScope.launch {
                                     listState.animateScrollToItem(index)
                                 }
@@ -902,9 +929,22 @@ fun TimePickerWheel(
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
-                            verticalAlignment = Alignment.Bottom,
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
+                            // Invisible spacer matching "min" width on left to keep number perfectly centered
+                            Text(
+                                text = "min",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 24.sp,
+                                    color = Color.Transparent
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
                             Text(
                                 text = "$option",
                                 style = TextStyle(
@@ -915,19 +955,18 @@ fun TimePickerWheel(
                                     textAlign = TextAlign.Center
                                 )
                             )
-                            if (isSelected) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "min",
-                                    style = TextStyle(
-                                        fontFamily = PoppinsFontFamily,
-                                        fontWeight = FontWeight.Normal,
-                                        fontSize = 24.sp,
-                                        color = Color(0xFF688E61).copy(alpha = 0.8f)
-                                    ),
-                                    modifier = Modifier.padding(bottom = 2.dp)
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = "min",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 24.sp,
+                                    color = if (isSelected) Color(0xFF688E61).copy(alpha = 0.8f) else Color.Transparent
                                 )
-                            }
+                            )
                         }
                     }
                 }
@@ -961,6 +1000,7 @@ fun TimePickerWheel(
 fun FrequencyScreen(
     minutes: Int,
     onChange: (Int) -> Unit,
+    onBack: () -> Unit,
     onNext: () -> Unit
 ) {
     Box(
@@ -975,23 +1015,41 @@ fun FrequencyScreen(
                 .widthIn(max = 360.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Section: Progress & Subtitle
+            // Top Section: Back Button, Progress & Subtitle
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 35.dp)
-                    .padding(top = 28.dp),
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 20.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                LinearProgressIndicator(
-                    progress = { 1.0f }, // 100% progress for Setup 3 of 3
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = Color(0xFF688E61),
-                    trackColor = Color(0xFFEFFFE7),
-                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF688E61)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    LinearProgressIndicator(
+                        progress = { 1.0f }, // 100% progress for Setup 3 of 3
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(8.dp),
+                        color = Color(0xFF688E61),
+                        trackColor = Color(0xFFEFFFE7),
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -1003,7 +1061,8 @@ fun FrequencyScreen(
                         fontSize = 16.sp,
                         lineHeight = 24.sp,
                         color = Color(0xFF688E61)
-                    )
+                    ),
+                    modifier = Modifier.padding(start = 48.dp)
                 )
             }
 
@@ -1111,6 +1170,7 @@ fun FrequencyScreenPreview() {
         FrequencyScreen(
             minutes = minutes,
             onChange = { minutes = it },
+            onBack = {},
             onNext = {}
         )
     }

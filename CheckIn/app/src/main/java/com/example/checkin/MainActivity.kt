@@ -49,13 +49,27 @@ class MainActivity : ComponentActivity() {
 
         when (step) {
             Step.HOW -> HowItWorksScreen { step = Step.PERMS }
-            Step.PERMS -> PermissionsScreen(usage, overlay,
+            Step.PERMS -> PermissionsScreen(
+                usageGranted = usage,
+                overlayGranted = overlay,
                 onUsage = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
                 onOverlay = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) },
-                onNext = { step = Step.APPS })
-            Step.APPS -> SelectAppsScreen(apps, selected, { selected = if (it in selected) selected - it else selected + it }) {
-                store.monitoredApps = selected; step = Step.FREQ }
-            Step.FREQ -> FrequencyScreen(minutes, { minutes = it }) { store.intervalMin = minutes; step = Step.INTRO }
+                onBack = { step = Step.HOW },
+                onNext = { step = Step.APPS }
+            )
+            Step.APPS -> SelectAppsScreen(
+                apps = apps,
+                selected = selected,
+                onToggle = { selected = if (it in selected) selected - it else selected + it },
+                onBack = { step = Step.PERMS },
+                onNext = { store.monitoredApps = selected; step = Step.FREQ }
+            )
+            Step.FREQ -> FrequencyScreen(
+                minutes = minutes,
+                onChange = { minutes = it },
+                onBack = { step = Step.APPS },
+                onNext = { store.intervalMin = minutes; step = Step.INTRO }
+            )
             Step.INTRO -> {
                 val names = selected.map { appLabel(it) }
                 SurveyScreen("Getting to know you", remember { introQuestions(names) }) { answers ->
