@@ -4,19 +4,27 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,11 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
@@ -724,11 +735,386 @@ fun SelectAppsScreenPreview() {
     }
 }
 
-@Composable fun FrequencyScreen(minutes: Int, onChange: (Int) -> Unit, onNext: () -> Unit) =
-    Page("Check-in frequency", "Check in after this much time in your selected apps.", "Next", onCta = onNext) {
-        Text("$minutes minutes", style = MaterialTheme.typography.titleLarge)
-        Slider(minutes.toFloat(), { onChange((it / 5).toInt().coerceAtLeast(1) * 5) }, valueRange = 5f..120f)
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TimePickerWheel(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = remember { (220 downTo 5 step 5).toList() }
+    val initialIndex = remember(value, options) {
+        val idx = options.indexOf(if (value in 5..220) value else 30)
+        if (idx != -1) idx else options.indexOf(30).coerceAtLeast(0)
     }
+
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val coroutineScope = rememberCoroutineScope()
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+
+    // Calculate current centered/selected item
+    val centerIndex by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) {
+                listState.firstVisibleItemIndex
+            } else {
+                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }?.index ?: listState.firstVisibleItemIndex
+            }
+        }
+    }
+
+    // Trigger onValueChange whenever centered item changes
+    LaunchedEffect(centerIndex) {
+        if (centerIndex in options.indices) {
+            val selectedVal = options[centerIndex]
+            if (selectedVal != value) {
+                onValueChange(selectedVal)
+            }
+        }
+    }
+
+    val focusRequester = remember { FocusRequester() }
+
+    Column(
+        modifier = modifier
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    when (keyEvent.key) {
+                        Key.DirectionUp -> {
+                            if (centerIndex > 0) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(centerIndex - 1)
+                                }
+                                true
+                            } else false
+                        }
+                        Key.DirectionDown -> {
+                            if (centerIndex < options.lastIndex) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(centerIndex + 1)
+                                }
+                                true
+                            } else false
+                        }
+                        else -> false
+                    }
+                } else false
+            },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Up Arrow Button (+5 minutes)
+        IconButton(
+            onClick = {
+                if (centerIndex > 0) {
+                    coroutineScope.launch {
+                        listState.animateScrollToItem(centerIndex - 1)
+                    }
+                }
+            },
+            enabled = centerIndex > 0,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Increase time",
+                tint = if (centerIndex > 0) Color(0xFF688E61) else Color(0xFF688E61).copy(alpha = 0.3f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Fixed height box showing scrollable list items
+        val itemHeight = 72.dp
+        val gap = 16.dp
+        // 3 visible items height: 72 * 3 + 16 * 2 = 248.dp
+        val visibleHeight = itemHeight * 3 + gap * 2
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(visibleHeight),
+            contentAlignment = Alignment.Center
+        ) {
+            LazyColumn(
+                state = listState,
+                flingBehavior = flingBehavior,
+                contentPadding = PaddingValues(vertical = itemHeight + gap),
+                verticalArrangement = Arrangement.spacedBy(gap),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(options) { index, option ->
+                    val isSelected = index == centerIndex
+                    val distance = kotlin.math.abs(index - centerIndex)
+                    val alpha = when (distance) {
+                        0 -> 1.0f
+                        1 -> 0.6f
+                        else -> 0.4f
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(itemHeight)
+                            .then(
+                                if (isSelected) {
+                                    Modifier
+                                        .shadow(
+                                            elevation = 8.dp,
+                                            shape = RoundedCornerShape(16.dp),
+                                            ambientColor = Color(0x21688E61),
+                                            spotColor = Color(0x21688E61)
+                                        )
+                                        .background(
+                                            color = Color(0xFFEFFFE7),
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color(0xFFEFFFE7),
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                } else {
+                                    Modifier
+                                        .background(
+                                            color = Color(0xFFF8FBF7),
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color(0xFFEFFFE7),
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                }
+                            )
+                            .clickable {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "$option",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 36.sp,
+                                    color = Color(0xFF688E61).copy(alpha = if (isSelected) 1.0f else alpha),
+                                    textAlign = TextAlign.Center
+                                )
+                            )
+                            if (isSelected) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "min",
+                                    style = TextStyle(
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 24.sp,
+                                        color = Color(0xFF688E61).copy(alpha = 0.8f)
+                                    ),
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Down Arrow Button (-5 minutes)
+        IconButton(
+            onClick = {
+                if (centerIndex < options.lastIndex) {
+                    coroutineScope.launch {
+                        listState.animateScrollToItem(centerIndex + 1)
+                    }
+                }
+            },
+            enabled = centerIndex < options.lastIndex,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Decrease time",
+                tint = if (centerIndex < options.lastIndex) Color(0xFF688E61) else Color(0xFF688E61).copy(alpha = 0.3f)
+            )
+        }
+    }
+}
+
+@Composable
+fun FrequencyScreen(
+    minutes: Int,
+    onChange: (Int) -> Unit,
+    onNext: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FBF7)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 360.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Section: Progress & Subtitle
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 35.dp)
+                    .padding(top = 28.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                LinearProgressIndicator(
+                    progress = { 1.0f }, // 100% progress for Setup 3 of 3
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    color = Color(0xFF688E61),
+                    trackColor = Color(0xFFEFFFE7),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Setup 3 of 3",
+                    style = TextStyle(
+                        fontFamily = PoppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        color = Color(0xFF688E61)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(38.dp))
+
+            // Headline Text
+            Text(
+                text = "Select the frequency of check-ins:",
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 24.sp,
+                    color = Color(0xFF688E61),
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier
+                    .width(280.dp)
+                    .padding(horizontal = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(35.dp))
+
+            // White Card Sheet
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .shadow(
+                        elevation = 16.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x21688E61),
+                        spotColor = Color(0x21688E61)
+                    ),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Send me check-ins every:",
+                        style = TextStyle(
+                            fontFamily = PoppinsFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 24.sp,
+                            color = Color(0xFF688E61).copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    TimePickerWheel(
+                        value = minutes,
+                        onValueChange = onChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Next Button
+            Button(
+                onClick = onNext,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF688E61),
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 8.dp,
+                    pressedElevation = 4.dp
+                ),
+                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 14.dp),
+                modifier = Modifier
+                    .padding(bottom = 32.dp)
+                    .widthIn(min = 134.dp)
+            ) {
+                Text(
+                    text = "Next",
+                    style = TextStyle(
+                        fontFamily = PoppinsFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp,
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun FrequencyScreenPreview() {
+    var minutes by remember { mutableIntStateOf(30) }
+    MaterialTheme {
+        FrequencyScreen(
+            minutes = minutes,
+            onChange = { minutes = it },
+            onNext = {}
+        )
+    }
+}
 
 fun introQuestions(apps: List<String>): List<Question> {
     val a = apps.take(3).joinToString(" and ")
