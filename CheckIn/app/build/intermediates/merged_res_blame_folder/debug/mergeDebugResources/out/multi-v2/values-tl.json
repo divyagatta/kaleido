@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.checkin.app-mergeDebugResources-37:/values-tl/values-tl.xml",
+            "outputFile": "com.example.checkin.app-mergeDebugResources-42:/values-tl/values-tl.xml",
             "map": [
                 {
                     "source": "C:\\Users\\riyer\\.gradle\\caches\\9.6.0\\transforms\\a4052c5dfaab6bd754e3bed286906422\\transformed\\foundation-release\\res\\values-tl\\values-tl.xml",

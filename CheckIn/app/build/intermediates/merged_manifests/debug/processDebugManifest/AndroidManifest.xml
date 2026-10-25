@@ -60,6 +60,10 @@
                 android:value="Detects time spent in user-selected apps to trigger reflection check-ins" />
         </service>
 
+        <activity
+            android:name="androidx.compose.ui.tooling.PreviewActivity"
+            android:exported="true" />
+
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="com.example.checkin.androidx-startup"
