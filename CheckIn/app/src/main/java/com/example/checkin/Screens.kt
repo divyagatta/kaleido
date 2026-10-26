@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -1428,6 +1429,286 @@ fun SurveyScreenPreview() {
     }
 }
 
-@Composable fun HomeScreen(apps: List<String>, minutes: Int, count: Int) =
-    Page("CheckIn is active", "Watching: ${apps.joinToString()}\nCheck-in every $minutes min\nReflections so far: $count",
-        "OK", onCta = {})
+@Composable
+fun HomeScreen(
+    monitoredApps: List<String>,
+    intervalMin: Int,
+    onEditApps: () -> Unit,
+    onEditFrequency: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FBF7)),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .widthIn(max = 360.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header: Menu Icon, Title "Home", Circle Avatar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(
+                    onClick = { /* Menu action */ },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = Color(0xFF688E61)
+                    )
+                }
+
+                Text(
+                    text = "Home",
+                    style = TextStyle(
+                        fontFamily = PoppinsFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp,
+                        color = Color(0xFF688E61),
+                        textAlign = TextAlign.Center
+                    )
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFFEFFFE7), CircleShape)
+                )
+            }
+
+            // Card 1: Active App Limits
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x21688E61),
+                        spotColor = Color(0x21688E61)
+                    ),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Active app limits",
+                            style = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 20.sp,
+                                color = Color(0xFF688E61)
+                            )
+                        )
+
+                        Text(
+                            text = "Edit",
+                            style = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 16.sp,
+                                color = Color(0xFF688E61).copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier.clickable { onEditApps() }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (monitoredApps.isEmpty()) {
+                        Text(
+                            text = "No app limits set yet",
+                            style = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = Color(0xFF1D1B20).copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            monitoredApps.forEach { appName ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(Color(0xFFEFFFE7), RoundedCornerShape(10.dp)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = appName.take(1).uppercase(),
+                                                    style = TextStyle(
+                                                        fontFamily = PoppinsFontFamily,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 14.sp,
+                                                        color = Color(0xFF688E61)
+                                                    )
+                                                )
+                                            }
+
+                                            Text(
+                                                text = appName,
+                                                style = TextStyle(
+                                                    fontFamily = PoppinsFontFamily,
+                                                    fontWeight = FontWeight.Normal,
+                                                    fontSize = 14.sp,
+                                                    color = Color(0xFF1D1B20)
+                                                )
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "${intervalMin}m remaining",
+                                            style = TextStyle(
+                                                fontFamily = PoppinsFontFamily,
+                                                fontWeight = FontWeight.Normal,
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF1D1B20).copy(alpha = 0.5f)
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Card 2: Time in between check-ins
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color(0x21688E61),
+                        spotColor = Color(0x21688E61)
+                    ),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEFFFE7))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Time in between check-ins",
+                        style = TextStyle(
+                            fontFamily = PoppinsFontFamily,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 20.sp,
+                            color = Color(0xFF688E61)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "$intervalMin",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 36.sp,
+                                    color = Color(0xFF688E61)
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = "min",
+                                style = TextStyle(
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 20.sp,
+                                    color = Color(0xFF1D1B20).copy(alpha = 0.5f)
+                                )
+                            )
+                        }
+
+                        Text(
+                            text = "Edit",
+                            style = TextStyle(
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 16.sp,
+                                color = Color(0xFF688E61).copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .clickable { onEditFrequency() }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun HomeScreenPreview() {
+    MaterialTheme {
+        HomeScreen(
+            monitoredApps = listOf("Instagram", "TikTok"),
+            intervalMin = 30,
+            onEditApps = {},
+            onEditFrequency = {}
+        )
+    }
+}

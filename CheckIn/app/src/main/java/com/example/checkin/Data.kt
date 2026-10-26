@@ -24,6 +24,8 @@ class Store(ctx: Context) {
         get() = p.getInt("interval", 30); set(v) = p.edit().putInt("interval", v).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false); set(v) = p.edit().putBoolean("onboarded", v).apply()
+    var currentStep: String
+        get() = p.getString("step", "HOW") ?: "HOW"; set(v) = p.edit().putString("step", v).apply()
     var locked: Boolean
         get() = p.getBoolean("locked", false); set(v) = p.edit().putBoolean("locked", v).apply()
     var usedMs: Long

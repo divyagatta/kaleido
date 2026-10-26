@@ -31,12 +31,23 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Flow(store: Store) {
-        var step by remember { mutableStateOf(if (store.onboarded) Step.HOME else Step.HOW) }
+        val initialStep = remember {
+            if (store.onboarded) Step.HOME
+            else try { Step.valueOf(store.currentStep) } catch (e: Exception) { Step.HOW }
+        }
+        var step by remember { mutableStateOf(initialStep) }
         var selected by remember { mutableStateOf(store.monitoredApps) }
         var minutes by remember { mutableIntStateOf(store.intervalMin) }
         val apps = remember { launchableApps(this) }
         var usage by remember { mutableStateOf(usageGranted()) }
         var overlay by remember { mutableStateOf(Settings.canDrawOverlays(this)) }
+
+        // Persist setup step whenever it changes
+        LaunchedEffect(step) {
+            if (!store.onboarded) {
+                store.currentStep = step.name
+            }
+        }
 
         // Re-check permissions when returning from system settings.
         val owner = LocalLifecycleOwner.current
@@ -61,25 +72,38 @@ class MainActivity : ComponentActivity() {
                 apps = apps,
                 selected = selected,
                 onToggle = { selected = if (it in selected) selected - it else selected + it },
-                onBack = { step = Step.PERMS },
-                onNext = { store.monitoredApps = selected; step = Step.FREQ }
+                onBack = { if (store.onboarded) step = Step.HOME else step = Step.PERMS },
+                onNext = {
+                    store.monitoredApps = selected
+                    if (store.onboarded) step = Step.HOME else step = Step.FREQ
+                }
             )
             Step.FREQ -> FrequencyScreen(
                 minutes = minutes,
                 onChange = { minutes = it },
-                onBack = { step = Step.APPS },
-                onNext = { store.intervalMin = minutes; step = Step.INTRO }
+                onBack = { if (store.onboarded) step = Step.HOME else step = Step.APPS },
+                onNext = {
+                    store.intervalMin = minutes
+                    if (store.onboarded) step = Step.HOME else step = Step.INTRO
+                }
             )
             Step.INTRO -> {
                 val names = selected.map { appLabel(it) }
                 SurveyScreen("Getting to know you", remember { introQuestions(names) }) { answers ->
                     store.add(Reflection(System.currentTimeMillis(), "intro", names, answers))
-                    store.onboarded = true; step = Step.HOME
+                    store.onboarded = true
+                    store.currentStep = Step.HOME.name
+                    step = Step.HOME
                 }
             }
             Step.HOME -> {
                 LaunchedEffect(Unit) { startForegroundService(Intent(this@MainActivity, UsageMonitorService::class.java)) }
-                HomeScreen(store.monitoredApps.map { appLabel(it) }, store.intervalMin, store.reflections().size)
+                HomeScreen(
+                    monitoredApps = store.monitoredApps.map { appLabel(it) },
+                    intervalMin = store.intervalMin,
+                    onEditApps = { step = Step.APPS },
+                    onEditFrequency = { step = Step.FREQ }
+                )
             }
         }
     }
