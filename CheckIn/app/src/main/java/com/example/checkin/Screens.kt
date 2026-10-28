@@ -44,10 +44,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -112,6 +114,139 @@ fun Page(title: String, body: String? = null, cta: String, ctaEnabled: Boolean =
         Spacer(Modifier.height(16.dp))
         Column(Modifier.weight(1f)) { content() }
         Button(onCta, enabled = ctaEnabled, modifier = Modifier.fillMaxWidth()) { Text(cta) }
+    }
+}
+
+@Composable
+fun LoadingScreen(
+    onLoaded: () -> Unit
+) {
+    LaunchedEffect(Unit) {
+        delay(1200) // Brief splash delay
+        onLoaded()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF688E61)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_kaleido_mark),
+                contentDescription = "Kaleido Logo",
+                modifier = Modifier.size(142.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "kaleido",
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 56.sp,
+                    color = Color(0xFFEFFFE7),
+                    textAlign = TextAlign.Center,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color(0x33EFFFE7),
+                        blurRadius = 24f
+                    )
+                )
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun LoadingScreenPreview() {
+    MaterialTheme {
+        LoadingScreen(onLoaded = {})
+    }
+}
+
+@Composable
+fun WelcomeScreen(
+    onStartSetup: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF688E61)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_kaleido_mark),
+                contentDescription = "Kaleido Logo",
+                modifier = Modifier.size(142.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "kaleido",
+                style = TextStyle(
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 56.sp,
+                    color = Color(0xFFEFFFE7),
+                    textAlign = TextAlign.Center,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color(0x33EFFFE7),
+                        blurRadius = 24f
+                    )
+                )
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Glass Button: "Tap to begin reflecting."
+            Surface(
+                onClick = onStartSetup,
+                shape = CircleShape,
+                color = Color(0x33EFFFE7),
+                border = BorderStroke(1.dp, Color(0x66EFFFE7)),
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .widthIn(min = 190.dp)
+                    .height(38.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Tap to begin reflecting.",
+                        style = TextStyle(
+                            fontFamily = PoppinsFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
+                            color = Color(0xFFEFFFE7).copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun WelcomeScreenPreview() {
+    MaterialTheme {
+        WelcomeScreen(onStartSetup = {})
     }
 }
 

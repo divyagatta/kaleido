@@ -15,7 +15,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 
-enum class Step { HOW, PERMS, APPS, FREQ, INTRO, HOME }
+enum class Step { SPLASH, WELCOME, HOW, PERMS, APPS, FREQ, INTRO, HOME }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,11 +31,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Flow(store: Store) {
-        val initialStep = remember {
-            if (store.onboarded) Step.HOME
-            else try { Step.valueOf(store.currentStep) } catch (e: Exception) { Step.HOW }
-        }
-        var step by remember { mutableStateOf(initialStep) }
+        var step by remember { mutableStateOf(Step.SPLASH) }
         var selected by remember { mutableStateOf(store.monitoredApps) }
         var minutes by remember { mutableIntStateOf(store.intervalMin) }
         val apps = remember { launchableApps(this) }
@@ -44,7 +40,7 @@ class MainActivity : ComponentActivity() {
 
         // Persist setup step whenever it changes
         LaunchedEffect(step) {
-            if (!store.onboarded) {
+            if (!store.onboarded && step != Step.SPLASH && step != Step.WELCOME) {
                 store.currentStep = step.name
             }
         }
@@ -59,13 +55,30 @@ class MainActivity : ComponentActivity() {
         }
 
         when (step) {
-            Step.HOW -> HowItWorksScreen { step = Step.PERMS }
+            Step.SPLASH -> LoadingScreen {
+                step = if (store.onboarded) {
+                    Step.HOME
+                } else {
+                    try {
+                        val saved = Step.valueOf(store.currentStep)
+                        if (saved == Step.SPLASH || saved == Step.WELCOME) Step.WELCOME else saved
+                    } catch (e: Exception) {
+                        Step.WELCOME
+                    }
+                }
+            }
+            Step.WELCOME -> WelcomeScreen {
+                step = Step.HOW
+            }
+            Step.HOW -> HowItWorksScreen {
+                step = Step.PERMS
+            }
             Step.PERMS -> PermissionsScreen(
                 usageGranted = usage,
                 overlayGranted = overlay,
                 onUsage = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
                 onOverlay = { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) },
-                onBack = { step = Step.HOW },
+                onBack = { step = Step.WELCOME },
                 onNext = { step = Step.APPS }
             )
             Step.APPS -> SelectAppsScreen(
